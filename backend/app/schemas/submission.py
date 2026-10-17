@@ -24,11 +24,26 @@ class TestExecutionResult(BaseModel):
     stderr: Optional[str] = None
     is_hidden: bool = False
 
+class RoutingStepLog(BaseModel):
+    step: str
+    tier: str
+    model_used: str
+    reason: str
+    prompt_tokens: int
+    completion_tokens: int
+
+class OrchestrationTelemetry(BaseModel):
+    total_tokens: int
+    estimated_cost_usd: float
+    estimated_savings_percentage: float
+    routing_decisions: List[RoutingStepLog]
+
 class SwarmEvaluationResponse(BaseModel):
     all_passed: bool
     execution_status: str
     public_results: List[TestExecutionResult]
-    hidden_results_summary: Dict[str, int]  # e.g., {"total": 3, "passed": 1, "failed": 2}
+    hidden_results_summary: Dict[str, int]
     failed_edge_case_category: Optional[str] = None
     misconception_diagnosis: Optional[str] = None
     progressive_hint: str
+    telemetry: OrchestrationTelemetry
