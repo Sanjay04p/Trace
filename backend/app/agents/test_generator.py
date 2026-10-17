@@ -1,10 +1,13 @@
 import json
-from app.core.config import nebius_client, FAST_MODEL
+from app.agents.router import SwarmOrchestrator
 
-async def generate_edge_cases(problem_description: str, category: str) -> list[dict]:
-    """
-    Uses a fast LLM to generate adversarial edge cases for a specific algorithm problem.
-    """
+async def generate_edge_cases(
+    problem_description: str,
+    category: str,
+    orchestrator: SwarmOrchestrator
+) -> list[dict]:
+    decision = orchestrator.select_model(step="edge_case_generation")
+    
     system_prompt = (
         "You are an expert algorithm tester. Given a problem description and category "
         "(e.g., arrays, sliding windows), generate 3 hidden edge cases. "
@@ -14,21 +17,17 @@ async def generate_edge_cases(problem_description: str, category: str) -> list[d
     )
     
     try:
-        response = await nebius_client.chat.completions.create(
-            model=FAST_MODEL,
+        raw_output = await orchestrator.execute_llm_call(
+            decision=decision,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Category: {category}\nProblem: {problem_description}"}
             ],
-            temperature=0.2, # Low temperature for structured, deterministic JSON output
+            temperature=0.2,
             max_tokens=500
         )
-        
-        # Parse the JSON directly from the fast model's response
-        raw_output = response.choices[0].message.content.strip()
-        test_cases = json.loads(raw_output)
-        return test_cases
-        
-    except json.JSONDecodeError:
-        # Fallback in case the model hallucinates formatting
+        if raw_output.startswith("```"):
+            raw_output = raw_output.strip("`").removeprefix("json").strip()
+        return json.loads(raw_output)
+    except Exception:
         return []
