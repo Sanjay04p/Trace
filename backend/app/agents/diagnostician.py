@@ -1,6 +1,7 @@
 import json
 from typing import List, Dict, Any
 from app.agents.router import SwarmOrchestrator
+import re
 
 async def diagnose_misconception(
     problem_description: str,
@@ -39,11 +40,22 @@ async def diagnose_misconception(
                 {"role": "user", "content": user_payload}
             ],
             temperature=0.2,
-            max_tokens=400
+            max_tokens=1200
         )
+        
+        # BONUS TIP ADDED HERE: Strip <think> tags before parsing
+        # This removes everything between <think> and </think> (case-insensitive)
+        raw_content = re.sub(r"<think>[\s\S]*?</think>", "", raw_content, flags=re.IGNORECASE).strip()
+        
+        # Also handle edge cases where the token limit cut off the closing </think> tag
+        if "<think>" in raw_content.lower():
+            raw_content = raw_content.split("</think>")[-1].strip()
+
         if raw_content.startswith("```"):
             raw_content = raw_content.strip("`").removeprefix("json").strip()
+            
         return json.loads(raw_content)
+        
     except Exception as e:
         return {
             "failed_edge_case_category": "Logic / Runtime Error",
