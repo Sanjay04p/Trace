@@ -11,6 +11,7 @@ import {
   MessageSquareText,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
   Play,
   Plus,
   Send,
@@ -42,6 +43,7 @@ function App() {
   const [customProblems, setCustomProblems] = useSessionState<Problem[]>('trace:customProblems', [])
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [customFormOpen, setCustomFormOpen] = useState(false)
+  const [editingProblem, setEditingProblem] = useState<Problem | null>(null)
   const [isRunning, setIsRunning] = useState(false)
   const [isHintLoading, setIsHintLoading] = useState(false)
   const [isChatSending, setIsChatSending] = useState(false)
@@ -133,17 +135,31 @@ function App() {
     }
   }
 
-  const handleCreateCustomProblem = (customProblem: Problem) => {
-    setCustomProblems((current) => [...current, customProblem])
+  const handleSaveCustomProblem = (customProblem: Problem) => {
+    setCustomProblems((current) => editingProblem ? current.map((item) => item.id === customProblem.id ? customProblem : item) : [...current, customProblem])
     setCodeByProblem((current) => ({ ...current, [customProblem.id]: customProblem.starterCode }))
+    setEvaluationByProblem((current) => omitKey(current, customProblem.id))
+    setChatHistoryByProblem((current) => omitKey(current, customProblem.id))
+    setTelemetryLogByProblem((current) => omitKey(current, customProblem.id))
     setSelectedProblemId(customProblem.id)
     setCustomFormOpen(false)
+    setEditingProblem(null)
     setNetworkError('')
+  }
+
+  const openNewProblemForm = () => {
+    setEditingProblem(null)
+    setCustomFormOpen(true)
+  }
+
+  const openEditProblemForm = (customProblem: Problem) => {
+    setEditingProblem({ ...customProblem, starterCode: codeByProblem[customProblem.id] ?? customProblem.starterCode })
+    setCustomFormOpen(true)
   }
 
   return (
     <div className="app-shell">
-      <Sidebar open={sidebarOpen} problems={allProblems} selectedId={problem.id} onSelect={setSelectedProblemId} onAddCustom={() => setCustomFormOpen(true)} onToggle={() => setSidebarOpen((open) => !open)} />
+      <Sidebar open={sidebarOpen} problems={allProblems} customProblemIds={new Set(customProblems.map((item) => item.id))} selectedId={problem.id} onSelect={setSelectedProblemId} onAddCustom={openNewProblemForm} onEditCustom={openEditProblemForm} onToggle={() => setSidebarOpen((open) => !open)} />
       <div className="workbench">
         <Header problem={problem} sidebarOpen={sidebarOpen} isRunning={isRunning} onToggleSidebar={() => setSidebarOpen((open) => !open)} onRun={() => void runEvaluation(hintLevel)} />
         <main className="workbench-grid">
@@ -164,17 +180,17 @@ function App() {
           </aside>
         </main>
       </div>
-      {customFormOpen && <CustomProblemModal onClose={() => setCustomFormOpen(false)} onCreate={handleCreateCustomProblem} />}
+      {customFormOpen && <CustomProblemModal key={editingProblem?.id ?? 'new'} initialProblem={editingProblem} onClose={() => { setCustomFormOpen(false); setEditingProblem(null) }} onCreate={handleSaveCustomProblem} />}
     </div>
   )
 }
 
-function Sidebar({ open, problems: problemList, selectedId, onSelect, onAddCustom, onToggle }: { open: boolean; problems: Problem[]; selectedId: string; onSelect: (id: string) => void; onAddCustom: () => void; onToggle: () => void }) {
+function Sidebar({ open, problems: problemList, customProblemIds, selectedId, onSelect, onAddCustom, onEditCustom, onToggle }: { open: boolean; problems: Problem[]; customProblemIds: Set<string>; selectedId: string; onSelect: (id: string) => void; onAddCustom: () => void; onEditCustom: (problem: Problem) => void; onToggle: () => void }) {
   return (
     <aside className={`sidebar ${open ? 'expanded' : 'mini'}`} aria-expanded={open}>
       <div className="brand-row"><button className="brand-logo-area" onClick={onToggle} aria-label={open ? 'Collapse sidebar' : 'Open sidebar'}><span className="brand-mark">T</span><PanelLeftOpen className="brand-hover-toggle" size={18} /></button><span className="brand-name">Trace</span><span className="brand-version">BETA</span>{open && <button className="brand-collapse-toggle" onClick={onToggle} aria-label="Collapse sidebar"><PanelLeftClose size={16} /></button>}</div>
       <div className="sidebar-workspace"><span className="workspace-kicker">WORKSPACE</span><button className="workspace-select">Algorithm Lab <ChevronDown size={14} /></button></div>
-      <div className="problem-nav"><div className="nav-heading"><span>PROBLEMS</span><span className="problem-count">{problemList.length}</span></div><div className="problem-list">{problemList.map((item, index) => <button key={item.id} title={item.title} aria-label={`Open ${item.title}`} className={`problem-item ${item.id === selectedId ? 'selected' : ''}`} onClick={() => onSelect(item.id)}><span className={`problem-index ${item.id === selectedId ? 'active' : ''}`}>{String(index + 1).padStart(2, '0')}</span><span className="problem-copy"><span className="problem-title">{item.title}</span><span className="problem-meta"><span className={`difficulty ${item.difficulty.toLowerCase()}`}>{item.difficulty}</span><span>{item.category}</span></span></span>{item.id === 'longest-substring' && <Check size={14} className="problem-check" />}</button>)}</div><button className="add-problem-button" onClick={onAddCustom}><Plus size={15} /><span>Add custom problem</span></button></div>
+      <div className="problem-nav"><div className="nav-heading"><span>PROBLEMS</span><span className="problem-count">{problemList.length}</span></div><div className="problem-list">{problemList.map((item, index) => <div className="problem-item-wrap" key={item.id}><button title={item.title} aria-label={`Open ${item.title}`} className={`problem-item ${item.id === selectedId ? 'selected' : ''}`} onClick={() => onSelect(item.id)}><span className={`problem-index ${item.id === selectedId ? 'active' : ''}`}>{String(index + 1).padStart(2, '0')}</span><span className="problem-copy"><span className="problem-title">{item.title}</span><span className="problem-meta"><span className={`difficulty ${item.difficulty.toLowerCase()}`}>{item.difficulty}</span><span>{item.category}</span></span></span>{item.id === 'longest-substring' && <Check size={14} className="problem-check" />}</button>{customProblemIds.has(item.id) && <button className="problem-edit-button" onClick={() => onEditCustom(item)} aria-label={`Edit ${item.title}`} title="Edit custom problem"><Pencil size={13} /></button>}</div>)}</div><button className="add-problem-button" onClick={onAddCustom}><Plus size={15} /><span>Add custom problem</span></button></div>
       <div className="sidebar-bottom"><div className="connection-row"><span className="status-dot emerald" /><span>Sandbox connected</span><span className="connection-latency">42ms</span></div><div className="build-row"><GitBranch size={14} /> main <span className="build-separator">·</span> trace-0.1</div></div>
     </aside>
   )
@@ -230,13 +246,13 @@ function TelemetryAccordion({ telemetry }: { telemetry: TelemetryLog }) {
   return <details className="telemetry-accordion"><summary><span><Gauge size={15} /> Model Orchestration Telemetry</span><span className="telemetry-summary-meta mono">{telemetry.totalTokens.toLocaleString()} tokens <ChevronDown size={14} /></span></summary><div className="telemetry-content"><div className="telemetry-stats"><div><span className="telemetry-value mono">{telemetry.totalTokens.toLocaleString()}</span><span className="telemetry-label">TOKENS</span></div><div><span className="telemetry-value mono">${telemetry.estimatedCostUsd.toFixed(4)}</span><span className="telemetry-label">EST. COST</span></div><div><span className="telemetry-value mono emerald-text">{telemetry.estimatedSavingsPercentage.toFixed(1)}%</span><span className="telemetry-label">SAVED</span></div></div><div className="routing-list">{(telemetry.routingDecisions.length ? telemetry.routingDecisions.slice(-3).reverse() : [{ step: 'awaiting_execution', tier: '—', model_used: 'No route yet', reason: 'Run an evaluation to inspect model routing.', prompt_tokens: 0, completion_tokens: 0 }]).map((route, index) => <div className="route-row" key={`${route.step}-${index}`}><span className="route-line" /><div className="route-copy"><span>{labelForStep(route.step)}</span><small className="mono">{route.tier} · {route.model_used.split('/').at(-1)}</small></div><span className="route-tokens mono">{route.prompt_tokens + route.completion_tokens || '—'}</span></div>)}</div></div></details>
 }
 
-function CustomProblemModal({ onClose, onCreate }: { onClose: () => void; onCreate: (problem: Problem) => void }) {
-  const [title, setTitle] = useState('')
-  const [category, setCategory] = useState('')
-  const [description, setDescription] = useState('')
-  const [input, setInput] = useState('')
-  const [expected, setExpected] = useState('')
-  const [code, setCode] = useState('')
+function CustomProblemModal({ initialProblem, onClose, onCreate }: { initialProblem: Problem | null; onClose: () => void; onCreate: (problem: Problem) => void }) {
+  const [title, setTitle] = useState(initialProblem?.title ?? '')
+  const [category, setCategory] = useState(initialProblem?.category ?? '')
+  const [description, setDescription] = useState(initialProblem?.description ?? '')
+  const [input, setInput] = useState(initialProblem?.tests[0] ? editableValue(initialProblem.tests[0].input) : '')
+  const [expected, setExpected] = useState(initialProblem?.tests[0] ? editableValue(initialProblem.tests[0].expected_output) : '')
+  const [code, setCode] = useState(initialProblem?.starterCode ?? '')
   const [error, setError] = useState('')
 
   const handleSubmit = (event: FormEvent) => {
@@ -245,10 +261,10 @@ function CustomProblemModal({ onClose, onCreate }: { onClose: () => void; onCrea
       setError('Title, category, description, input, and expected output are required.')
       return
     }
-    onCreate({ id: `${slugify(title)}-${Date.now()}`, title: title.trim(), category: category.trim(), difficulty: 'MEDIUM', description: description.trim(), starterCode: code, tests: [{ input: parseValue(input), expected_output: parseValue(expected) }] })
+    onCreate({ id: initialProblem?.id ?? `${slugify(title)}-${Date.now()}`, title: title.trim(), category: category.trim(), difficulty: initialProblem?.difficulty ?? 'MEDIUM', description: description.trim(), starterCode: code, tests: [{ input: parseValue(input), expected_output: parseValue(expected) }] })
   }
 
-  return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="custom-problem-title"><form className="custom-problem-modal" onSubmit={handleSubmit}><div className="modal-header"><div><span className="eyebrow">CUSTOM WORKSPACE</span><h2 id="custom-problem-title">Add a problem to Trace</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label="Close custom problem form"><X size={17} /></button></div><div className="modal-grid"><label>Problem title<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Merge overlapping intervals" autoFocus /></label><label>Category<input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="e.g. Intervals" /></label><label className="full-width">Problem description<textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the algorithmic objective and expected return value." rows={3} /></label><label>Public test input<span className="field-hint">JSON or plain text</span><textarea value={input} onChange={(event) => setInput(event.target.value)} placeholder="[[1, 3], [2, 6]]" rows={2} /></label><label>Expected output<span className="field-hint">JSON or plain text</span><textarea value={expected} onChange={(event) => setExpected(event.target.value)} placeholder="[[1, 6]]" rows={2} /></label><label className="full-width">Starting code<span className="field-hint">Optional — you can also write it in the editor after creating.</span><textarea className="modal-code" value={code} onChange={(event) => setCode(event.target.value)} placeholder={'def solve(input_data):\n    pass'} rows={6} spellCheck={false} /></label></div>{error && <div className="modal-error"><AlertCircle size={14} /> {error}</div>}<div className="modal-footer"><span className="modal-note">Saved to this browser session</span><div><button type="button" className="modal-secondary" onClick={onClose}>Cancel</button><button type="submit" className="modal-primary"><Plus size={15} /> Create problem</button></div></div></form></div>
+  return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="custom-problem-title"><form className="custom-problem-modal" onSubmit={handleSubmit}><div className="modal-header"><div><span className="eyebrow">CUSTOM WORKSPACE</span><h2 id="custom-problem-title">{initialProblem ? 'Edit custom problem' : 'Add a problem to Trace'}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label="Close custom problem form"><X size={17} /></button></div><div className="modal-grid"><label>Problem title<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Merge overlapping intervals" autoFocus /></label><label>Category<input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="e.g. Intervals" /></label><label className="full-width">Problem description<textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the algorithmic objective and expected return value." rows={3} /></label><label>Public test input<span className="field-hint">JSON or plain text</span><textarea value={input} onChange={(event) => setInput(event.target.value)} placeholder="[[1, 3], [2, 6]]" rows={2} /></label><label>Expected output<span className="field-hint">JSON or plain text</span><textarea value={expected} onChange={(event) => setExpected(event.target.value)} placeholder="[[1, 6]]" rows={2} /></label><label className="full-width">Starting code<span className="field-hint">Optional — you can also write it in the editor after creating.</span><textarea className="modal-code" value={code} onChange={(event) => setCode(event.target.value)} placeholder={'def solve(input_data):\n    pass'} rows={6} spellCheck={false} /></label></div>{error && <div className="modal-error"><AlertCircle size={14} /> {error}</div>}<div className="modal-footer"><span className="modal-note">Saved to this browser session</span><div><button type="button" className="modal-secondary" onClick={onClose}>Cancel</button><button type="submit" className="modal-primary">{initialProblem ? <><Pencil size={15} /> Save changes</> : <><Plus size={15} /> Create problem</>}</button></div></div></form></div>
 }
 
 function Metric({ label, value, accent }: { label: string; value: string; accent: string }) {
@@ -270,6 +286,16 @@ function parseValue(value: string) {
   } catch {
     return value
   }
+}
+
+function editableValue(value: unknown) {
+  return typeof value === 'string' ? value : JSON.stringify(value)
+}
+
+function omitKey<T extends object>(record: T, key: string): T {
+  const next = { ...record }
+  delete (next as Record<string, unknown>)[key]
+  return next
 }
 
 function slugify(value: string) {
