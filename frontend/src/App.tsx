@@ -22,6 +22,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { problems } from './data/problems'
+import CustomProblemForm from './components/CustomProblemForm'
 import { useSessionState } from './hooks/useSessionState'
 import { evaluateSubmission, sendChat } from './lib/api'
 import { ChatMessage, Problem, SwarmEvaluationResponse, TelemetryLog } from './types'
@@ -180,7 +181,7 @@ function App() {
           </aside>
         </main>
       </div>
-      {customFormOpen && <CustomProblemModal key={editingProblem?.id ?? 'new'} initialProblem={editingProblem} onClose={() => { setCustomFormOpen(false); setEditingProblem(null) }} onCreate={handleSaveCustomProblem} />}
+      {customFormOpen && <CustomProblemForm key={editingProblem?.id ?? 'new'} initialProblem={editingProblem} onClose={() => { setCustomFormOpen(false); setEditingProblem(null) }} onSave={handleSaveCustomProblem} />}
     </div>
   )
 }
