@@ -2,13 +2,15 @@ from fastapi import APIRouter, HTTPException
 from app.schemas.submission import (
     CodeSubmissionRequest,
     SwarmEvaluationResponse,
-    TestExecutionResult
+    TestExecutionResult,
+    FollowUpChatRequest,
+    FollowUpChatResponse,
 )
 from app.agents.router import SwarmOrchestrator
 from app.agents.test_generator import generate_edge_cases
 from app.services.sandbox import execute_in_sandbox
 from app.agents.diagnostician import diagnose_misconception
-from app.agents.mentor import generate_progressive_hint
+from app.agents.mentor import generate_progressive_hint,answer_followup_question
 
 router = APIRouter(prefix="/api/v1/swarm", tags=["AlgoMentor Swarm"])
 
@@ -153,5 +155,37 @@ async def evaluate_submission(payload: CodeSubmissionRequest):
         failed_edge_case_category=failed_category,
         misconception_diagnosis=diagnosis_text,
         progressive_hint=hint,
+        telemetry=orchestrator.get_telemetry_summary()
+    )
+
+
+@router.post("/chat", response_model=FollowUpChatResponse)
+async def followup_chat(payload: FollowUpChatRequest):
+    """
+    Session-aware Socratic follow-up endpoint:
+    Answers learner questions about hints, invariants, or complexity using
+    their live code and latest sandbox diagnosis without re-running the sandbox.
+    """
+    orchestrator = SwarmOrchestrator()
+
+    history_dicts = [
+        {"role": msg.role, "content": msg.content}
+        for msg in payload.chat_history
+    ]
+
+    reply = await answer_followup_question(
+        problem_title=payload.problem_title,
+        problem_description=payload.problem_description,
+        category=payload.category,
+        user_code=payload.user_code,
+        diagnosis=payload.misconception_diagnosis,
+        failed_category=payload.failed_edge_case_category,
+        chat_history=history_dicts,
+        user_message=payload.user_message,
+        orchestrator=orchestrator
+    )
+
+    return FollowUpChatResponse(
+        reply=reply,
         telemetry=orchestrator.get_telemetry_summary()
     )
