@@ -1,6 +1,15 @@
-import { ChatMessage, Problem, SwarmEvaluationResponse, Telemetry } from '../types'
+import { ChatMessage, ImportedProblem, Problem, SwarmEvaluationResponse, Telemetry } from '../types'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
+
+export async function importProblem(query: string): Promise<ImportedProblem> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/swarm/import?query=${encodeURIComponent(query)}`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  })
+  if (!response.ok) throw new Error(await readError(response))
+  return (await response.json()) as ImportedProblem
+}
 
 type EvaluatePayload = {
   problem: Problem
