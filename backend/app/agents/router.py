@@ -106,7 +106,21 @@ class SwarmOrchestrator:
                     model_id=MODEL_TIERS["ULTRA"],
                     reason="Level 3 structural state-trace walkthrough escalated to Nemotron Ultra."
                 )
-
+        # 4. Follow-Up Socratic Chat -> Scales with conversation depth & question complexity
+        if step == "followup_chat":
+            if hint_level >= 3:
+                return OrchestrationDecision(
+                    step=step,
+                    tier="SUPER",
+                    model_id=MODEL_TIERS["SUPER"],
+                    reason="Deep multi-turn conceptual follow-up routed to Nemotron Super."
+                )
+            return OrchestrationDecision(
+                step=step,
+                tier="NANO",
+                model_id=MODEL_TIERS["NANO"],
+                reason="Conversational Socratic clarification routed to low-latency Nemotron Nano."
+            )    
         # Default fallback
         return OrchestrationDecision(
             step=step,
