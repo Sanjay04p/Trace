@@ -33,6 +33,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .sidebar { display: flex; flex: 0 0 248px; flex-direction: column; border-right: 1px solid var(--hairline); background: #0d0d0f; }
 .brand-row { display: flex; align-items: center; height: 64px; padding: 0 19px; border-bottom: 1px solid var(--hairline); gap: 9px; }
 .brand-mark { display: grid; width: 25px; height: 25px; place-items: center; border: 1px solid #3f3f46; color: #f4f4f5; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; }
+.brand-logo { display: block; width: 25px; height: 25px; object-fit: cover; }
 .brand-name { color: #f4f4f5; font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
 .brand-version { margin-left: 2px; padding: 2px 4px; border: 1px solid #333338; color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: .06em; }
 .sidebar-workspace { padding: 24px 17px 19px; }
@@ -217,7 +218,7 @@ h1 { margin: 11px 0 7px; color: var(--text); font-size: 21px; font-weight: 600; 
 .brand-logo-area { position: relative; display: grid; width: 31px; height: 31px; flex: 0 0 31px; place-items: center; padding: 0; border: 1px solid transparent; background: transparent; color: var(--secondary); }
 .brand-logo-area:hover { border-color: #45454d; background: #17171a; color: var(--text); }
 .brand-hover-toggle { position: absolute; inset: 6px; display: none; }
-.brand-logo-area:hover .brand-mark { opacity: .16; }
+.brand-logo-area:hover .brand-logo { opacity: .16; }
 .brand-logo-area:hover .brand-hover-toggle { display: block; }
 .sidebar.expanded .brand-hover-toggle { display: none; }
 .brand-collapse-toggle { display: grid; width: 28px; height: 28px; margin-left: auto; place-items: center; border: 1px solid transparent; background: transparent; color: var(--muted); }
