@@ -5,7 +5,8 @@ from app.schemas.submission import (
     TestExecutionResult,
     FollowUpChatRequest,
     FollowUpChatResponse,
-    ImportedProblemResponse
+    ImportedProblemResponse,
+    TestCase
 )
 from app.agents.router import SwarmOrchestrator
 from app.agents.test_generator import generate_edge_cases
@@ -200,14 +201,18 @@ async def import_problem(query: str):
     
     data = await import_leetcode_problem(query, orchestrator)
     
-    # Handle failure gracefully
     if not data:
         raise HTTPException(status_code=404, detail="Could not import problem. Try a different query.")
         
-    # Map the JSON array into TestCase objects
+    # Fix: Instantiate TestCase instead of TestExecutionResult
     test_cases = [
-        TestExecutionResult(input=tc.get("input"), expected_output=tc.get("expected_output"), passed=False, is_hidden=False)
+        TestCase(
+            input=tc.get("input"),
+            expected_output=tc.get("expected_output"),
+            is_hidden=False
+        )
         for tc in data.get("public_test_cases", [])
+        if isinstance(tc, dict) and "input" in tc and "expected_output" in tc
     ]
     
     return ImportedProblemResponse(
