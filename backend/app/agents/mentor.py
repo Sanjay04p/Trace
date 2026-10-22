@@ -1,5 +1,6 @@
 from typing import List
 from app.agents.router import SwarmOrchestrator
+import re
 
 HINT_DEPTH_GUIDELINES = {
     1: "Level 1 (Subtle Socratic Question): Ask a short, thought-provoking question about their pointers, window, or state under boundary conditions without naming the exact line of code.",
@@ -37,12 +38,19 @@ async def generate_progressive_hint(
         f"Previous Hints Given: {previous_hints}\n\nGenerate the progressive hint now:"
     )
 
-    return await orchestrator.execute_llm_call(
+    raw_content = await orchestrator.execute_llm_call(
         decision=decision,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
         temperature=0.4,
-        max_tokens=250
+        max_tokens=1200
     )
+
+    # Strip <think>...</think> reasoning blocks before returning the hint
+    clean_content = re.sub(r"<think>[\s\S]*?</think>", "", raw_content, flags=re.IGNORECASE).strip()
+    if "<think>" in clean_content.lower():
+        clean_content = clean_content.split("</think>")[-1].strip()
+
+    return clean_content
