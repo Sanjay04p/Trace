@@ -13,6 +13,13 @@ export type TestCase = {
   expected_output: unknown
 }
 
+export type ImportedProblem = {
+  problem_title: string
+  category: string
+  problem_description: string
+  public_test_cases: TestCase[]
+}
+
 export type TestExecutionResult = TestCase & {
   actual_output?: unknown
   passed: boolean
