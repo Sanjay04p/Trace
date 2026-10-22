@@ -7,7 +7,7 @@ import logging
 import httpx
 from typing import List, Dict, Any
 from app.core.config import NEBIUS_API_KEY
-
+import subprocess
 logger = logging.getLogger(__name__)
 
 # Optional remote sandbox URL. If unset or unreachable, automatically falls back to local isolated runner.
@@ -88,7 +88,7 @@ async def _run_single_test_locally(
     test_case: Dict[str, Any],
     timeout_sec: float = 2.5
 ) -> Dict[str, Any]:
-    """Runs a single test case in an isolated child process with a strict timeout."""
+    """Runs a single test case in an isolated child process using a non-blocking thread (Windows & Linux safe)."""
     expected = test_case.get("expected_output")
     test_input = test_case.get("input")
 
@@ -98,16 +98,11 @@ async def _run_single_test_locally(
             f.write(LOCAL_RUNNER_HARNESS)
 
         # Strip sensitive environment variables (like NEBIUS_API_KEY) from child process
-        safe_env = {"PATH": os.environ.get("PATH", ""), "PYTHONIOENCODING": "utf-8"}
-
-        proc = await asyncio.create_subprocess_exec(
-            sys.executable, "-I", harness_path,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=tmpdir,
-            env=safe_env
-        )
+        safe_env = {
+            "PATH": os.environ.get("PATH", ""),
+            "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),  # Required on Windows to initialize Python
+            "PYTHONIOENCODING": "utf-8"
+        }
 
         input_payload = json.dumps({
             "user_code": user_code,
@@ -115,13 +110,20 @@ async def _run_single_test_locally(
         }).encode("utf-8")
 
         try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(input=input_payload),
+            # Run subprocess.run inside a thread so it never blocks FastAPI and works on Windows SelectorEventLoop
+            completed_proc = await asyncio.to_thread(
+                subprocess.run,
+                [sys.executable, "-I", harness_path],
+                input=input_payload,
+                capture_output=True,
+                cwd=tmpdir,
+                env=safe_env,
                 timeout=timeout_sec
             )
-        except asyncio.TimeoutError:
-            proc.kill()
-            await proc.communicate()
+            stdout = completed_proc.stdout
+            stderr = completed_proc.stderr
+
+        except subprocess.TimeoutExpired:
             return {
                 "input": test_input,
                 "passed": False,
