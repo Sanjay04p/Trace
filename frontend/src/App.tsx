@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { problems } from './data/problems'
 import CustomProblemForm from './components/CustomProblemForm'
+import { useExecutionProgress } from './hooks/useExecutionProgress'
 import { useSessionState } from './hooks/useSessionState'
 import { evaluateSubmission, sendChat } from './lib/api'
 import { ChatMessage, Problem, SwarmEvaluationResponse, TelemetryLog } from './types'
@@ -50,6 +51,7 @@ function App() {
   const [isChatSending, setIsChatSending] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [networkError, setNetworkError] = useState('')
+  const executionMessage = useExecutionProgress(isRunning)
 
   const allProblems = useMemo(() => [...problems, ...customProblems], [customProblems])
   const problem = allProblems.find((item) => item.id === selectedProblemId) ?? allProblems[0]
@@ -170,6 +172,7 @@ function App() {
               <div className="panel-toolbar"><div className="toolbar-label"><Code2 size={15} /> solution.py</div><div className="toolbar-meta"><span className="status-dot emerald" /> Python 3.11 <span className="toolbar-divider" /> UTF-8</div></div>
               <CodeEditor value={code} onChange={(value) => setCodeByProblem((current) => ({ ...current, [problem.id]: value }))} />
               <div className="editor-footer"><div className="editor-hint"><Command size={14} /> Tab inserts 4 spaces <span className="toolbar-divider" /> <span className="mono">Ln {code.split('\n').length}, Col 1</span></div><span className="editor-run-note">Run &amp; Diagnose is in the header</span></div>
+              <ExecutionStatusBar isEvaluating={isRunning} message={executionMessage} />
             </div>
             <TestsPanel problem={problem} evaluation={evaluation} />
           </section>
@@ -190,7 +193,7 @@ function Sidebar({ open, problems: problemList, customProblemIds, selectedId, on
   return (
     <aside className={`sidebar ${open ? 'expanded' : 'mini'}`} aria-expanded={open}>
       <div className="brand-row"><button className="brand-logo-area" onClick={onToggle} aria-label={open ? 'Collapse sidebar' : 'Open sidebar'}><img className="brand-logo" src="https://res.cloudinary.com/ds4zkmnxw/image/upload/v1792677315/logo_thd1tq.jpg" alt="Trace logo" /><PanelLeftOpen className="brand-hover-toggle" size={18} /></button><span className="brand-name">Trace</span><span className="brand-version">BETA</span>{open && <button className="brand-collapse-toggle" onClick={onToggle} aria-label="Collapse sidebar"><PanelLeftClose size={16} /></button>}</div>
-      <div className="sidebar-workspace"><span className="workspace-kicker">WORKSPACE</span><button className="workspace-select">Algorithm Lab <ChevronDown size={14} /></button></div>
+      <div className="sidebar-workspace"><span className="workspace-kicker">WORKSPACE</span><button className="workspace-select">Algorithm Lab </button></div>
       <div className="problem-nav"><div className="nav-heading"><span>PROBLEMS</span><span className="problem-count">{problemList.length}</span></div><div className="problem-list">{problemList.map((item, index) => <div className="problem-item-wrap" key={item.id}><button title={item.title} aria-label={`Open ${item.title}`} className={`problem-item ${item.id === selectedId ? 'selected' : ''}`} onClick={() => onSelect(item.id)}><span className={`problem-index ${item.id === selectedId ? 'active' : ''}`}>{String(index + 1).padStart(2, '0')}</span><span className="problem-copy"><span className="problem-title">{item.title}</span><span className="problem-meta"><span className={`difficulty ${item.difficulty.toLowerCase()}`}>{item.difficulty}</span><span>{item.category}</span></span></span>{item.id === 'longest-substring' && <Check size={14} className="problem-check" />}</button>{customProblemIds.has(item.id) && <button className="problem-edit-button" onClick={() => onEditCustom(item)} aria-label={`Edit ${item.title}`} title="Edit custom problem"><Pencil size={13} /></button>}</div>)}</div><button className="add-problem-button" onClick={onAddCustom}><Plus size={15} /><span>Add custom problem</span></button></div>
       <div className="sidebar-bottom"><div className="connection-row"><span className="status-dot emerald" /><span>Sandbox connected</span><span className="connection-latency">42ms</span></div><div className="build-row"><GitBranch size={14} /> main <span className="build-separator">·</span> trace-0.1</div></div>
     </aside>
@@ -198,7 +201,11 @@ function Sidebar({ open, problems: problemList, customProblemIds, selectedId, on
 }
 
 function Header({ problem, sidebarOpen, isRunning, onToggleSidebar, onRun }: { problem: Problem; sidebarOpen: boolean; isRunning: boolean; onToggleSidebar: () => void; onRun: () => void }) {
-  return <header className="topbar"><div className="topbar-left"><button className="sidebar-toggle" onClick={onToggleSidebar} aria-label={sidebarOpen ? 'Collapse problem sidebar' : 'Open problem sidebar'}>{sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</button><div className="breadcrumb"><span>Algorithm Lab</span><span className="breadcrumb-separator">/</span><strong>{problem.title}</strong></div></div><button className="header-run-button" onClick={onRun} disabled={isRunning}>{isRunning ? <><span className="spinner" /> Tracing</> : <><Play size={15} fill="currentColor" /> Run &amp; Diagnose</>}</button></header>
+  return <header className="topbar"><div className="topbar-left"><button className="sidebar-toggle" onClick={onToggleSidebar} aria-label={sidebarOpen ? 'Collapse problem sidebar' : 'Open problem sidebar'}>{sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</button><div className="breadcrumb"><span>Algorithm Lab</span><span className="breadcrumb-separator">/</span><strong>{problem.title}</strong></div></div><button className="header-run-button" onClick={onRun} disabled={isRunning}>{isRunning ? <><span className="spinner" /> Executing...</> : <><Play size={15} fill="currentColor" /> Run &amp; Diagnose</>}</button></header>
+}
+
+function ExecutionStatusBar({ isEvaluating, message }: { isEvaluating: boolean; message: string }) {
+  return <div className={`execution-status-bar ${isEvaluating ? 'active' : ''}`} role="status" aria-live="polite"><span className={`execution-indicator ${isEvaluating ? 'pulsing' : ''}`} /> <span>{isEvaluating ? message : 'Status: Idle'}</span></div>
 }
 
 function ProblemHeader({ problem, index, total }: { problem: Problem; index: number; total: number }) {
