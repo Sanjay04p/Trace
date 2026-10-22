@@ -47,3 +47,21 @@ class SwarmEvaluationResponse(BaseModel):
     misconception_diagnosis: Optional[str] = None
     progressive_hint: str
     telemetry: OrchestrationTelemetry
+
+class ChatMessage(BaseModel):
+    role: str = Field(..., description="'user' or 'assistant'")
+    content: str
+
+class FollowUpChatRequest(BaseModel):
+    problem_title: str
+    problem_description: str
+    category: str
+    user_code: str
+    misconception_diagnosis: Optional[str] = None
+    failed_edge_case_category: Optional[str] = None
+    chat_history: List[ChatMessage] = Field(default_factory=list)
+    user_message: str
+
+class FollowUpChatResponse(BaseModel):
+    reply: str
+    telemetry: OrchestrationTelemetry
