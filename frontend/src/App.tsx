@@ -201,7 +201,7 @@ function Sidebar({ open, problems: problemList, customProblemIds, selectedId, on
 }
 
 function Header({ problem, sidebarOpen, isRunning, onToggleSidebar, onRun }: { problem: Problem; sidebarOpen: boolean; isRunning: boolean; onToggleSidebar: () => void; onRun: () => void }) {
-  return <header className="topbar"><div className="topbar-left"><button className="sidebar-toggle" onClick={onToggleSidebar} aria-label={sidebarOpen ? 'Collapse problem sidebar' : 'Open problem sidebar'}>{sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</button><div className="breadcrumb"><span>Algorithm Lab</span><span className="breadcrumb-separator">/</span><strong>{problem.title}</strong></div></div><button className="header-run-button" onClick={onRun} disabled={isRunning}>{isRunning ? <><span className="spinner" /> Executing...</> : <><Play size={15} fill="currentColor" /> Run &amp; Diagnose</>}</button></header>
+  return <header className="topbar"><div className="topbar-left"><div className="breadcrumb"><span>Algorithm Lab</span><span className="breadcrumb-separator">/</span><strong>{problem.title}</strong></div></div><button className="header-run-button" onClick={onRun} disabled={isRunning}>{isRunning ? <><span className="spinner" /> Executing...</> : <><Play size={15} fill="currentColor" /> Run &amp; Diagnose</>}</button></header>
 }
 
 function ExecutionStatusBar({ isEvaluating, message }: { isEvaluating: boolean; message: string }) {
