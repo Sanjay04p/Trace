@@ -25,25 +25,26 @@ async def evaluate_submission(payload: CodeSubmissionRequest):
     # Initialize the intelligent router and token telemetry tracker for this request
     orchestrator = SwarmOrchestrator()
 
+    public_tests_dicts = [
+        {"input": tc.input, "expected_output": tc.expected_output, "is_hidden": False}
+        for tc in payload.public_test_cases
+    ]
     # Step 3 (Prep): Generate hidden adversarial edge cases dynamically (Routed to NANO)
     generated_hidden_raw = await generate_edge_cases(
         problem_description=payload.problem_description,
         category=payload.category,
+        sample_public_cases=public_tests_dicts,
         orchestrator=orchestrator
     )
 
     # Combine public and hidden test cases for a single sandbox execution batch
-    combined_tests = [
-        {"input": tc.input, "expected_output": tc.expected_output, "is_hidden": False}
-        for tc in payload.public_test_cases
-    ]
+    combined_tests = list(public_tests_dicts)
     for h_tc in generated_hidden_raw:
-        if isinstance(h_tc, dict) and "input" in h_tc and "expected_output" in h_tc:
-            combined_tests.append({
-                "input": h_tc["input"],
-                "expected_output": h_tc["expected_output"],
-                "is_hidden": True
-            })
+        combined_tests.append({
+            "input": h_tc["input"],
+            "expected_output": h_tc["expected_output"],
+            "is_hidden": True
+        })
 
     # Step 2: Execute learner code in the Token Factory Sandbox
     sandbox_response = await execute_in_sandbox(
