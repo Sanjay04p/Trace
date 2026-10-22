@@ -17,9 +17,9 @@ nebius_client = AsyncOpenAI(
 
 # 3-Tier NVIDIA Nemotron Hierarchy (Override in .env if exact Nebius slugs differ)
 MODEL_TIERS = {
-    "NANO": os.getenv("NEMOTRON_NANO_MODEL", "nvidia/Nemotron-3-Nano-30B-A3B"),
-    "SUPER": os.getenv("NEMOTRON_SUPER_MODEL", "nvidia/Nemotron-3-Super-120B"),
-    "ULTRA": os.getenv("NEMOTRON_ULTRA_MODEL", "nvidia/Nemotron-4-340B-Instruct"),
+    "NANO": os.getenv("NEMOTRON_NANO_MODEL", "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"),
+    "SUPER": os.getenv("NEMOTRON_SUPER_MODEL", "nvidia/nemotron-3-super-120b-a12b"),
+    "ULTRA": os.getenv("NEMOTRON_ULTRA_MODEL", "nvidia/Nemotron-3-Ultra-550b-a55b"),
 }
 
 # Approximate cost per 1M tokens (USD) on Token Factory for telemetry calculation
