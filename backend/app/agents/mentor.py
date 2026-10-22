@@ -1,4 +1,4 @@
-from typing import List
+from typing import List,Dict, Any, Optional
 from app.agents.router import SwarmOrchestrator
 import re
 
@@ -54,3 +54,66 @@ async def generate_progressive_hint(
         clean_content = clean_content.split("</think>")[-1].strip()
 
     return clean_content
+
+async def answer_followup_question(
+    problem_title: str,
+    problem_description: str,
+    category: str,
+    user_code: str,
+    diagnosis: Optional[str],
+    failed_category: Optional[str],
+    chat_history: List[Dict[str, str]],
+    user_message: str,
+    orchestrator: SwarmOrchestrator
+) -> str:
+    """
+    Handles multi-turn Socratic follow-up questions using the current session context
+    (learner's code, sandbox diagnosis, and prior chat history) without spoiling the solution.
+    """
+    # Escalate to SUPER if the conversation is deep (>= 4 messages) or asks conceptual "why/invariant/complexity" questions
+    deep_keywords = ("why", "invariant", "complexity", "walkthrough", "trace", "understand", "stuck")
+    is_deep_query = len(chat_history) >= 4 or any(k in user_message.lower() for k in deep_keywords)
+    effective_level = 3 if is_deep_query else 1
+
+    decision = orchestrator.select_model(
+        step="followup_chat",
+        hint_level=effective_level
+    )
+
+    system_prompt = (
+        "You are AlgoMentor, an interactive Socratic coding coach for algorithms and data structures.\n"
+        "You are in an active mentoring session helping a learner debug their Python code.\n"
+        "STRICT GUARDRAILS:\n"
+        "- NEVER write the complete corrected Python solution or hand over copy-pasteable code fixes.\n"
+        "- NEVER reveal exact hidden test case inputs.\n"
+        "- Answer the learner's follow-up question directly, clearly, and encouragingly using tiny conceptual examples or pointer traces.\n"
+        "- End your reply with a brief check-in question that nudges them toward editing and re-running their code[cite: 1].\n"
+        "- Keep your response concise (2 to 5 sentences)."
+    )
+
+    context_header = (
+        f"Problem: {problem_title} ({category})\n"
+        f"Description: {problem_description}\n\n"
+        f"Learner's Current Code:\n```python\n{user_code}\n```\n\n"
+        f"Latest Sandbox Diagnosis: {diagnosis or 'Not yet diagnosed'}\n"
+        f"Failure Category: {failed_category or 'N/A'}\n"
+    )
+
+    messages: List[Dict[str, str]] = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"SESSION CONTEXT:\n{context_header}"}
+    ]
+
+    # Append recent session chat history (last 8 turns to keep token usage lean)
+    for msg in chat_history[-8:]:
+        role = "assistant" if msg.get("role") == "assistant" else "user"
+        messages.append({"role": role, "content": msg.get("content", "")})
+
+    messages.append({"role": "user", "content": user_message})
+
+    return await orchestrator.execute_llm_call(
+        decision=decision,
+        messages=messages,
+        temperature=0.4,
+        max_tokens=1200
+    )
