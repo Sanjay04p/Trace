@@ -1,4 +1,5 @@
 from typing import Dict, Any, List, Tuple
+import re
 from app.core.config import nebius_client, MODEL_TIERS, MODEL_PRICING_PER_1M
 
 class OrchestrationDecision:
@@ -119,7 +120,7 @@ class SwarmOrchestrator:
         decision: OrchestrationDecision,
         messages: List[Dict[str, str]],
         temperature: float = 0.2,
-        max_tokens: int = 400
+        max_tokens: int = 1200
     ) -> str:
         """Executes the Nebius Token Factory call and records token & cost telemetry."""
         response = await nebius_client.chat.completions.create(
@@ -155,7 +156,14 @@ class SwarmOrchestrator:
             "completion_tokens": c_tokens,
         })
 
-        return response.choices[0].message.content.strip()
+        raw_content = response.choices[0].message.content or ""
+        
+        # Strip <think>...</think> reasoning blocks globally for all routed calls
+        clean_content = re.sub(r"<think>[\s\S]*?</think>", "", raw_content, flags=re.IGNORECASE).strip()
+        if "<think>" in clean_content.lower():
+            clean_content = clean_content.split("</think>")[-1].strip()
+
+        return clean_content
 
     def get_telemetry_summary(self) -> Dict[str, Any]:
         savings_pct = 0.0
