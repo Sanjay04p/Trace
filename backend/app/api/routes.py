@@ -5,12 +5,14 @@ from app.schemas.submission import (
     TestExecutionResult,
     FollowUpChatRequest,
     FollowUpChatResponse,
+    ImportedProblemResponse
 )
 from app.agents.router import SwarmOrchestrator
 from app.agents.test_generator import generate_edge_cases
 from app.services.sandbox import execute_in_sandbox
 from app.agents.diagnostician import diagnose_misconception
 from app.agents.mentor import generate_progressive_hint,answer_followup_question
+from app.agents.importer import import_leetcode_problem
 
 router = APIRouter(prefix="/api/v1/swarm", tags=["AlgoMentor Swarm"])
 
@@ -187,5 +189,31 @@ async def followup_chat(payload: FollowUpChatRequest):
 
     return FollowUpChatResponse(
         reply=reply,
+        telemetry=orchestrator.get_telemetry_summary()
+    )
+
+
+@router.get("/import", response_model=ImportedProblemResponse)
+async def import_problem(query: str):
+    """Instantly pulls LeetCode problem definitions and test cases via Nemotron Nano."""
+    orchestrator = SwarmOrchestrator()
+    
+    data = await import_leetcode_problem(query, orchestrator)
+    
+    # Handle failure gracefully
+    if not data:
+        raise HTTPException(status_code=404, detail="Could not import problem. Try a different query.")
+        
+    # Map the JSON array into TestCase objects
+    test_cases = [
+        TestExecutionResult(input=tc.get("input"), expected_output=tc.get("expected_output"), passed=False, is_hidden=False)
+        for tc in data.get("public_test_cases", [])
+    ]
+    
+    return ImportedProblemResponse(
+        problem_title=data.get("title", query),
+        category=data.get("category", "Uncategorized"),
+        problem_description=data.get("description", "Description not found."),
+        public_test_cases=test_cases,
         telemetry=orchestrator.get_telemetry_summary()
     )
