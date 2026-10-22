@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import nebius_client, PRIMARY_MODEL
+from app.core.config import nebius_client, MODEL_TIERS
 from app.api.routes import router as swarm_router
 app = FastAPI(
     title="AlgoMentor Swarm API",
@@ -25,14 +25,13 @@ app.include_router(swarm_router)
 async def health_check():
     """Verify backend is running and Nebius connection is active."""
     try:
-        # Quick ping to the Nebius models endpoint to verify authentication
         models = await nebius_client.models.list()
         return {
-            "status": "healthy", 
+            "status": "healthy",
             "nebius_connected": True,
-            "primary_model_configured": PRIMARY_MODEL
+            "models_configured": MODEL_TIERS
         }
     except Exception as e:
-         return {"status": "degraded", "error": str(e)}
+        return {"status": "degraded", "error": str(e)}
 
 # Run this file locally using: uvicorn app.main:app --reload
