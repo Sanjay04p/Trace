@@ -65,3 +65,10 @@ class FollowUpChatRequest(BaseModel):
 class FollowUpChatResponse(BaseModel):
     reply: str
     telemetry: OrchestrationTelemetry
+
+class ImportedProblemResponse(BaseModel):
+    problem_title: str
+    category: str
+    problem_description: str
+    public_test_cases: List[TestCase]
+    telemetry: OrchestrationTelemetry
