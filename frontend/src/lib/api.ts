@@ -1,9 +1,10 @@
 import { ChatMessage, ImportedProblem, Problem, SwarmEvaluationResponse, Telemetry } from '../types'
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const SWARM_API_URL = `${API_BASE_URL}/api/v1/swarm`
 
 export async function importProblem(query: string): Promise<ImportedProblem> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/swarm/import?query=${encodeURIComponent(query)}`, {
+  const response = await fetch(`${SWARM_API_URL}/import?query=${encodeURIComponent(query)}`, {
     method: 'GET',
     headers: { Accept: 'application/json' },
   })
@@ -19,7 +20,7 @@ type EvaluatePayload = {
 }
 
 export async function evaluateSubmission({ problem, userCode, hintLevel, previousHints }: EvaluatePayload) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/swarm/evaluate`, {
+  const response = await fetch(`${SWARM_API_URL}/evaluate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({
@@ -52,7 +53,7 @@ export async function sendChat({
   history: ChatMessage[]
   message: string
 }): Promise<{ reply: string; telemetry: Telemetry }> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/swarm/chat`, {
+  const response = await fetch(`${SWARM_API_URL}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({
