@@ -22,10 +22,10 @@ async def evaluate_submission(payload: CodeSubmissionRequest):
     """
     Full Agentic Pipeline with Intelligent NVIDIA Model Routing:
     1. Instantiates a request-scoped SwarmOrchestrator for routing & token telemetry.
-    2. Generates adversarial hidden edge cases via Nemotron Nano[cite: 1].
-    3. Executes both public + hidden test cases in the Token Factory Sandbox[cite: 1].
-    4. Dynamically routes misconception diagnosis (Nano / Super / Ultra) based on failure traces[cite: 1].
-    5. Dynamically routes Socratic hint generation based on learner hint_level[cite: 1].
+    2. Generates adversarial hidden edge cases via Nemotron Nano.
+    3. Executes both public + hidden test cases in the Token Factory Sandbox.
+    4. Dynamically routes misconception diagnosis (Nano / Super / Ultra) based on failure traces.
+    5. Dynamically routes Socratic hint generation based on learner hint_level.
     """
     # Initialize the intelligent router and token telemetry tracker for this request
     orchestrator = SwarmOrchestrator()
@@ -34,7 +34,8 @@ async def evaluate_submission(payload: CodeSubmissionRequest):
         {"input": tc.input, "expected_output": tc.expected_output, "is_hidden": False}
         for tc in payload.public_test_cases
     ]
-    # Step 3 (Prep): Generate hidden adversarial edge cases dynamically (Routed to NANO)
+    
+    # Step 1: Generate hidden adversarial edge cases dynamically (Routed to NANO)
     generated_hidden_raw = await generate_edge_cases(
         problem_description=payload.problem_description,
         category=payload.category,
@@ -65,6 +66,36 @@ async def evaluate_submission(payload: CodeSubmissionRequest):
         )
 
     raw_results = sandbox_response.get("results", [])
+
+    # --- NEW SHORT-CIRCUIT 1: Security Violation ---
+    # If the AST Gate caught malicious code, stop immediately. Do not call Nemotron Super/Ultra.
+    if execution_status == "security_violation":
+        error_msg = raw_results[0].get("stderr", "Code blocked by security policy.") if raw_results else "Code blocked by security policy."
+        
+        # Build a safe UI payload to display the error on the first public test case
+        public_results = [
+            TestExecutionResult(
+                input=tc["input"],
+                expected_output=tc["expected_output"],
+                actual_output=None,
+                passed=False,
+                stderr=error_msg,
+                is_hidden=False
+            ) for tc in public_tests_dicts
+        ]
+
+        return SwarmEvaluationResponse(
+            all_passed=False,
+            execution_status=execution_status,
+            public_results=public_results,
+            hidden_results_summary={"total": 0, "passed": 0, "failed": 0},
+            failed_edge_case_category="Security Risk",
+            misconception_diagnosis="Security Policy Violation",
+            progressive_hint=f"🚫 {error_msg}\n\nPlease remove any forbidden imports or commands to continue.",
+            telemetry=orchestrator.get_telemetry_summary()
+        )
+    # -----------------------------------------------
+
     public_results = []
     hidden_passed = 0
     hidden_failed = 0
@@ -103,7 +134,8 @@ async def evaluate_submission(payload: CodeSubmissionRequest):
 
     all_passed = len(failed_cases_for_diagnosis) == 0
 
-    # Fast-path if all public AND adversarial hidden cases pass (Zero extra LLM calls for Steps 4 & 5!)
+    # --- EXISTING SHORT-CIRCUIT 2: Perfect Code ---
+    # Fast-path if all public AND adversarial hidden cases pass (Zero extra LLM calls for Steps 4 & 5)
     if all_passed:
         return SwarmEvaluationResponse(
             all_passed=True,
@@ -116,11 +148,12 @@ async def evaluate_submission(payload: CodeSubmissionRequest):
             },
             failed_edge_case_category=None,
             misconception_diagnosis="Optimal execution across all public and adversarial boundary cases.",
-            progressive_hint="Spot on! Your solution handled both the standard inputs and our hidden adversarial edge cases. Can you analyze the time and space complexity of your approach?",
+            progressive_hint="✨ Spot on! Your solution handled both the standard inputs and our hidden adversarial edge cases. Can you analyze the time and space complexity of your approach?",
             telemetry=orchestrator.get_telemetry_summary()
         )
+    # ----------------------------------------------
 
-    # Step 4: Diagnose the misconception (Dynamically routed to NANO, SUPER, or ULTRA)
+    # Step 3: Diagnose the misconception (Dynamically routed to NANO, SUPER, or ULTRA)
     diagnosis_data = await diagnose_misconception(
         problem_description=payload.problem_description,
         category=payload.category,
@@ -134,7 +167,7 @@ async def evaluate_submission(payload: CodeSubmissionRequest):
     failed_category = diagnosis_data.get("failed_edge_case_category", "Edge Case Failure")
     diagnosis_text = diagnosis_data.get("diagnosis", "Logical discrepancy detected on boundary inputs.")
 
-    # Step 5: Generate the progressive Socratic hint (Dynamically routed by hint_level)
+    # Step 4: Generate the progressive Socratic hint (Dynamically routed by hint_level)
     hint = await generate_progressive_hint(
         problem_description=payload.problem_description,
         category=payload.category,
