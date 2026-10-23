@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import ast
 import asyncio
 import tempfile
 import logging
@@ -8,17 +9,111 @@ import httpx
 from typing import List, Dict, Any
 from app.core.config import NEBIUS_API_KEY
 import subprocess
+
 logger = logging.getLogger(__name__)
 
 # Optional remote sandbox URL. If unset or unreachable, automatically falls back to local isolated runner.
 SANDBOX_ENDPOINT = os.getenv("NEBIUS_SANDBOX_URL", "").strip()
 
-# Self-contained harness script executed inside an isolated child process
+# ----------------- LAYER 1: STATIC AST SECURITY GATE -----------------
+ALLOWED_MODULES = {
+    "math", "collections", "heapq", "bisect", "itertools",
+    "functools", "typing", "string", "re", "operator", "copy"
+}
+
+FORBIDDEN_CALLS = {
+    "eval", "exec", "compile", "open", "__import__", "input",
+    "breakpoint", "globals", "locals", "vars", "getattr", "setattr",
+    "delattr", "memoryview", "help", "exit", "quit"
+}
+
+FORBIDDEN_ATTRIBUTES = {
+    "__builtins__", "__globals__", "__subclasses__", "__bases__",
+    "__mro__", "__class__", "__code__", "__closure__", "__func__",
+    "__self__", "__module__", "__dict__", "__import__", "__loader__", "__spec__"
+}
+
+class SecurityViolationError(Exception):
+    """Raised when user code contains forbidden imports, calls, or introspection."""
+    pass
+
+def validate_user_code_ast(user_code: str) -> None:
+    """
+    Statically analyzes user code before execution.
+    Blocks forbidden imports, dangerous built-in invocations, and Python escape dunder chains.
+    """
+    try:
+        tree = ast.parse(user_code)
+    except SyntaxError:
+        # Let SyntaxErrors be handled gracefully during normal compilation
+        return
+
+    for node in ast.walk(tree):
+        # 1. Reject forbidden `import x`
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                root_mod = alias.name.split(".")[0]
+                if root_mod not in ALLOWED_MODULES:
+                    raise SecurityViolationError(
+                        f"Security Violation: Import of module '{alias.name}' is prohibited in the sandbox."
+                    )
+
+        # 2. Reject forbidden `from x import y`
+        elif isinstance(node, ast.ImportFrom):
+            root_mod = (node.module or "").split(".")[0]
+            if root_mod not in ALLOWED_MODULES:
+                raise SecurityViolationError(
+                    f"Security Violation: Import from '{node.module}' is prohibited in the sandbox."
+                )
+
+        # 3. Reject forbidden function calls like open(), eval(), exec(), getattr()
+        elif isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in FORBIDDEN_CALLS:
+                raise SecurityViolationError(
+                    f"Security Violation: Built-in function '{node.func.id}()' is disabled."
+                )
+
+        # 4. Reject forbidden dunder attribute access (e.g., ().__class__.__bases__)
+        elif isinstance(node, ast.Attribute):
+            if node.attr in FORBIDDEN_ATTRIBUTES:
+                raise SecurityViolationError(
+                    f"Security Violation: Access to attribute '{node.attr}' is prohibited."
+                )
+
+        # 5. Reject forbidden identifiers directly
+        elif isinstance(node, ast.Name):
+            if node.id in FORBIDDEN_ATTRIBUTES:
+                raise SecurityViolationError(
+                    f"Security Violation: Identifier '{node.id}' is prohibited in the sandbox."
+                )
+
+# ----------------- LAYER 2 & 3: ISOLATED HARNESS SCRIPT -----------------
 LOCAL_RUNNER_HARNESS = """
 import sys
 import json
 import ast
 import traceback
+import math
+import collections
+import heapq
+import bisect
+import itertools
+import functools
+import typing
+import string
+import re
+import operator
+import copy
+
+# OS-level resource limits on Linux environments (prevents RAM/CPU exhaustion and fork bombs)
+try:
+    import resource
+    MEM_LIMIT = 128 * 1024 * 1024  # 128 MB RAM max
+    resource.setrlimit(resource.RLIMIT_AS, (MEM_LIMIT, MEM_LIMIT))
+    resource.setrlimit(resource.RLIMIT_CPU, (3, 3))  # 3 seconds max CPU time
+    resource.setrlimit(resource.RLIMIT_NPROC, (0, 0)) # Disallow spawning processes
+except Exception:
+    pass
 
 class ListNode:
     def __init__(self, val=0, next=None):
@@ -30,6 +125,31 @@ class TreeNode:
         self.val = val
         self.left = left
         self.right = right
+
+ALLOWED_MODULES = {
+    "math": math, "collections": collections, "heapq": heapq,
+    "bisect": bisect, "itertools": itertools, "functools": functools,
+    "typing": typing, "string": string, "re": re, "operator": operator,
+    "copy": copy
+}
+
+def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+    root = name.split(".")[0]
+    if root in ALLOWED_MODULES:
+        return ALLOWED_MODULES[root]
+    raise ImportError(f"Module '{name}' is blocked by sandbox security policy.")
+
+def build_safe_builtins():
+    raw_builtins = __builtins__ if isinstance(__builtins__, dict) else vars(__builtins__)
+    safe = dict(raw_builtins)
+    for blocked in (
+        "open", "eval", "exec", "compile", "input", "breakpoint",
+        "globals", "locals", "vars", "getattr", "setattr", "delattr",
+        "memoryview", "help", "exit", "quit"
+    ):
+        safe.pop(blocked, None)
+    safe["__import__"] = _safe_import
+    return safe
 
 def find_entry_function(tree):
     \"\"\"Finds the last defined function or Solution method in the learner's code.\"\"\"
@@ -68,9 +188,31 @@ def main():
         }))
         return
 
-    namespace = {}
+    namespace = {
+        "__builtins__": build_safe_builtins(),
+        "ListNode": ListNode,
+        "TreeNode": TreeNode,
+        "math": math,
+        "collections": collections,
+        "heapq": heapq,
+        "bisect": bisect,
+        "itertools": itertools,
+        "functools": functools,
+        "typing": typing,
+        "List": typing.List,
+        "Dict": typing.Dict,
+        "Set": typing.Set,
+        "Tuple": typing.Tuple,
+        "Optional": typing.Optional,
+        "deque": collections.deque,
+        "defaultdict": collections.defaultdict,
+        "Counter": collections.Counter,
+    }
+
     try:
-        exec(compile(tree, filename="<learner_submission>", mode="exec"), namespace)
+        compiled_code = compile(tree, filename="<learner_submission>", mode="exec")
+        exec(compiled_code, namespace)
+        
         target = namespace["Solution"]() if in_solution_class else namespace[func_name]
         if in_solution_class:
             target = getattr(target, func_name)
@@ -108,11 +250,13 @@ async def _run_single_test_locally(
         with open(harness_path, "w", encoding="utf-8") as f:
             f.write(LOCAL_RUNNER_HARNESS)
 
-        # Strip sensitive environment variables (like NEBIUS_API_KEY) from child process
+        # Stripped environment dictionary: strictly prevents NEBIUS_API_KEY from entering process memory
         safe_env = {
             "PATH": os.environ.get("PATH", ""),
             "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),  # Required on Windows to initialize Python
-            "PYTHONIOENCODING": "utf-8"
+            "PYTHONIOENCODING": "utf-8",
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONNOUSERSITE": "1"
         }
 
         input_payload = json.dumps({
@@ -121,7 +265,6 @@ async def _run_single_test_locally(
         }).encode("utf-8")
 
         try:
-            # Run subprocess.run inside a thread so it never blocks FastAPI and works on Windows SelectorEventLoop
             completed_proc = await asyncio.to_thread(
                 subprocess.run,
                 [sys.executable, "-I", harness_path],
@@ -171,6 +314,24 @@ async def _run_single_test_locally(
 
 async def _execute_local_fallback(user_code: str, test_cases: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Executes all public and hidden test cases using the isolated local subprocess runner."""
+    # Run AST check before launching subprocesses
+    try:
+        validate_user_code_ast(user_code)
+    except SecurityViolationError as sec_err:
+        return {
+            "status": "security_violation",
+            "execution_mode": "local_isolated_sandbox",
+            "results": [
+                {
+                    "input": tc.get("input"),
+                    "passed": False,
+                    "actual_output": None,
+                    "stderr": str(sec_err)
+                }
+                for tc in test_cases
+            ]
+        }
+
     results = []
     any_timeout = False
 
