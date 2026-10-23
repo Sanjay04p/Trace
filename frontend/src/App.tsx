@@ -16,6 +16,7 @@ import {
   Plus,
   Send,
   ShieldCheck,
+  ShieldAlert,
   Sparkles,
   TerminalSquare,
   X,
@@ -101,6 +102,9 @@ function App() {
   const handleHintLevelChange = (level: number) => {
     if (level === hintLevel && evaluation) return
     setHintLevelByProblem((current) => ({ ...current, [problem.id]: level }))
+
+    if (evaluation?.all_passed === true || evaluation?.execution_status === 'security_violation') return
+
     void runEvaluation(level, true)
   }
 
@@ -243,7 +247,10 @@ function SignalPanel({ evaluation, isRunning, networkError }: { evaluation?: Swa
 }
 
 function HintPanel({ hintLevel, setHintLevel, evaluation, isLoading }: { hintLevel: number; setHintLevel: (level: number) => void; evaluation?: SwarmEvaluationResponse; isLoading: boolean }) {
-  return <section className="inspector-panel hint-panel"><div className="section-heading"><div className="section-title"><CircleHelp size={15} /> SOCRATIC HINT</div><span className="hint-depth">DEPTH {hintLevel}/3</span></div><div className="hint-levels">{[1, 2, 3].map((level) => <button key={level} className={hintLevel === level ? 'active' : ''} onClick={() => setHintLevel(level)} disabled={isLoading}><span>0{level}</span><small>{level === 1 ? 'Prompt' : level === 2 ? 'Invariant' : 'Trace'}</small></button>)}</div><div className={`hint-copy ${evaluation && !isLoading ? '' : 'muted'}`}>{isLoading ? <span className="hint-loading"><span className="spinner" /> Re-running the sandbox for a deeper hint…</span> : evaluation?.progressive_hint ?? 'Choose a hint depth, then run the sandbox to generate a Socratic response.'}</div>{evaluation?.failed_edge_case_category && !isLoading && <div className="diagnosis-tag"><AlertCircle size={13} /> {evaluation.failed_edge_case_category}</div>}</section>
+  const isSecurityViolation = evaluation?.execution_status === 'security_violation'
+  const hintIcon = evaluation?.all_passed ? <Sparkles size={15} /> : isSecurityViolation ? <ShieldAlert size={15} /> : null
+  const hintText = evaluation?.progressive_hint ? removeStatusEmoji(evaluation.progressive_hint) : 'Choose a hint depth, then run the sandbox to generate a Socratic response.'
+  return <section className="inspector-panel hint-panel"><div className="section-heading"><div className="section-title"><CircleHelp size={15} /> SOCRATIC HINT</div><span className="hint-depth">DEPTH {hintLevel}/3</span></div><div className="hint-levels">{[1, 2, 3].map((level) => <button key={level} className={hintLevel === level ? 'active' : ''} onClick={() => setHintLevel(level)} disabled={isLoading}><span>0{level}</span><small>{level === 1 ? 'Prompt' : level === 2 ? 'Invariant' : 'Trace'}</small></button>)}</div><div className={`hint-copy ${evaluation && !isLoading ? '' : 'muted'} ${isSecurityViolation ? 'security-hint' : ''}`}>{isLoading ? <span className="hint-loading"><span className="spinner" /> Re-running the sandbox for a deeper hint…</span> : evaluation ? <span className="hint-content">{hintIcon}{hintText}</span> : hintText}</div>{evaluation?.failed_edge_case_category && !isLoading && <div className="diagnosis-tag"><AlertCircle size={13} /> {evaluation.failed_edge_case_category}</div>}</section>
 }
 
 function ChatPanel({ history, input, setInput, onSubmit, isSending, hintLoading }: { history: ChatMessage[]; input: string; setInput: (value: string) => void; onSubmit: (event: FormEvent) => void; isSending: boolean; hintLoading: boolean }) {
@@ -286,6 +293,10 @@ function formatValue(value: unknown) {
 
 function labelForStep(step: string) {
   return step.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase())
+}
+
+function removeStatusEmoji(text: string) {
+  return text.replace(/^\s*(?:\u2728|\u{1F6AB})\s*/u, '')
 }
 
 function parseValue(value: string) {
