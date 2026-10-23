@@ -176,6 +176,10 @@ h1 { margin: 11px 0 7px; color: var(--text); font-size: 21px; font-weight: 600; 
 .hint-levels small { font-size: 10px; }
 .hint-copy { min-height: 66px; padding: 13px 15px 11px; color: var(--secondary); font-size: 11px; line-height: 1.55; }
 .hint-copy.muted { color: var(--muted); }
+.hint-content { display: flex; align-items: flex-start; gap: 8px; }
+.hint-content svg { flex: 0 0 auto; margin-top: 2px; color: var(--emerald); }
+.hint-copy.security-hint { color: #fca5a5; }
+.hint-copy.security-hint .hint-content svg { color: var(--crimson); }
 .diagnosis-tag { display: inline-flex; align-items: center; margin: 0 15px 13px; padding: 4px 6px; border: 1px solid #6f531b; color: var(--amber); font-family: 'JetBrains Mono', monospace; font-size: 9px; gap: 5px; }
 .live-label { display: flex; align-items: center; gap: 6px; }
 .telemetry-stats { display: grid; grid-template-columns: repeat(3, 1fr); padding: 14px 15px 13px; gap: 8px; }
@@ -286,7 +290,8 @@ h1 { margin: 11px 0 7px; color: var(--text); font-size: 21px; font-weight: 600; 
 .modal-close:hover { border-color: #45454d; color: var(--text); }
 .smart-import { padding: 16px 22px; border-bottom: 1px solid var(--hairline); background: #151517; }
 .smart-import-label { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 9px; }
-.smart-import-label span { color: var(--secondary); font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: .1em; }
+.smart-import-label span { display: flex; align-items: center; color: var(--secondary); font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: .1em; gap: 6px; }
+.smart-import-label svg { color: var(--emerald); }
 .smart-import-label small { color: var(--muted); font-size: 10px; }
 .smart-import-row { display: flex; gap: 8px; }
 .smart-import-row input { min-width: 0; flex: 1; padding: 10px 11px; border: 1px solid #34343b; outline: 0; background: #0d0d0f; color: var(--text); font-size: 13px; }
