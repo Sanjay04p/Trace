@@ -15,6 +15,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:4173",
         "https://trace-henna-phi.vercel.app/",
+        "https://trace.sanjayp.dev/",
     ], # Vite's default port
     allow_credentials=True,
     allow_methods=["*"],
