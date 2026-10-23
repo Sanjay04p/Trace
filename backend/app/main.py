@@ -14,7 +14,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:4173",
-        "https://trace-8kdc.onrender.com",
+        "https://trace-henna-phi.vercel.app/",
     ], # Vite's default port
     allow_credentials=True,
     allow_methods=["*"],
