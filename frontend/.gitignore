@@ -5,3 +5,8 @@ vite.config.js
 vite.config.d.ts
 logo.jpg
 public/
+.env
+.env.*
+!.env.example
+!.env.development.example
+!.env.production.example
