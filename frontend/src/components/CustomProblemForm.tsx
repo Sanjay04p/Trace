@@ -1,5 +1,5 @@
 import { FormEvent, KeyboardEvent, useState } from 'react'
-import { AlertCircle, Loader2, Pencil, Plus, X } from 'lucide-react'
+import { AlertCircle, Loader2, Pencil, Plus, Sparkles, X } from 'lucide-react'
 import { importProblem } from '../lib/api'
 import { Problem, TestCase } from '../types'
 
@@ -78,8 +78,8 @@ export default function CustomProblemForm({ initialProblem, onClose, onSave }: C
       <form className="custom-problem-modal" onSubmit={handleSubmit}>
         <div className="modal-header"><div><span className="eyebrow">CUSTOM WORKSPACE</span><h2 id="custom-problem-title">{initialProblem ? 'Edit custom problem' : 'Add a problem to Trace'}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label="Close custom problem form"><X size={17} /></button></div>
         <div className="smart-import">
-          <div className="smart-import-label"><span>SMART IMPORT</span><small>Fill the workspace from a LeetCode problem</small></div>
-          <div className="smart-import-row"><input value={importQuery} onChange={(event) => setImportQuery(event.target.value)} onKeyDown={handleImportKeyDown} placeholder="✨ Auto-Import Problem (e.g., LC 2 or 'Merge Intervals')" disabled={isImporting} aria-label="Auto-import problem" /><button type="button" className="smart-import-button" onClick={() => void handleImport()} disabled={!importQuery.trim() || isImporting}>{isImporting ? <><Loader2 size={15} className="animate-spin" /> Importing</> : 'Import'}</button></div>
+          <div className="smart-import-label"><span><Sparkles size={13} /> SMART IMPORT</span><small>Fill the workspace from a LeetCode problem</small></div>
+          <div className="smart-import-row"><input value={importQuery} onChange={(event) => setImportQuery(event.target.value)} onKeyDown={handleImportKeyDown} placeholder="Auto-Import Problem (e.g., LC 2 or 'Merge Intervals')" disabled={isImporting} aria-label="Auto-import problem" /><button type="button" className="smart-import-button" onClick={() => void handleImport()} disabled={!importQuery.trim() || isImporting}>{isImporting ? <><Loader2 size={15} className="animate-spin" /> Importing</> : 'Import'}</button></div>
           {importError && <div className="import-error"><AlertCircle size={14} /> {importError}</div>}
         </div>
         <div className="modal-grid">
