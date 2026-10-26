@@ -253,8 +253,34 @@ function HintPanel({ hintLevel, setHintLevel, evaluation, isLoading }: { hintLev
   return <section className="inspector-panel hint-panel"><div className="section-heading"><div className="section-title"><CircleHelp size={15} /> SOCRATIC HINT</div><span className="hint-depth">DEPTH {hintLevel}/3</span></div><div className="hint-levels">{[1, 2, 3].map((level) => <button key={level} className={hintLevel === level ? 'active' : ''} onClick={() => setHintLevel(level)} disabled={isLoading}><span>0{level}</span><small>{level === 1 ? 'Prompt' : level === 2 ? 'Invariant' : 'Trace'}</small></button>)}</div><div className={`hint-copy ${evaluation && !isLoading ? '' : 'muted'} ${isSecurityViolation ? 'security-hint' : ''}`}>{isLoading ? <span className="hint-loading"><span className="spinner" /> Re-running the sandbox for a deeper hint…</span> : evaluation ? <span className="hint-content">{hintIcon}{hintText}</span> : hintText}</div>{evaluation?.failed_edge_case_category && !isLoading && <div className="diagnosis-tag"><AlertCircle size={13} /> {evaluation.failed_edge_case_category}</div>}</section>
 }
 
+function MarkdownMessage({ content }: { content: string }) {
+  const blocks = content.trim().split(/\n{2,}/)
+  return <div className="markdown-message">{blocks.map((block, index) => {
+    const lines = block.split('\n')
+    const fenced = block.match(/^```(?:\w+)?\n([\s\S]*?)\n```$/)
+    if (fenced) return <pre key={index}><code>{fenced[1]}</code></pre>
+    if (lines.every((line) => /^\s*[-*+]\s+/.test(line))) {
+      return <ul key={index}>{lines.map((line, lineIndex) => <li key={lineIndex}>{renderMarkdownInline(line.replace(/^\s*[-*+]\s+/, ''))}</li>)}</ul>
+    }
+    if (lines.every((line) => /^\s*\d+\.\s+/.test(line))) {
+      return <ol key={index}>{lines.map((line, lineIndex) => <li key={lineIndex}>{renderMarkdownInline(line.replace(/^\s*\d+\.\s+/, ''))}</li>)}</ol>
+    }
+    return <p key={index}>{lines.map((line, lineIndex) => <span key={lineIndex}>{lineIndex > 0 && <br />}{renderMarkdownInline(line)}</span>)}</p>
+  })}</div>
+}
+
+function renderMarkdownInline(text: string) {
+  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_)/g)
+  return parts.map((part, index) => {
+    if (part.startsWith('`') && part.endsWith('`')) return <code key={index}>{part.slice(1, -1)}</code>
+    if ((part.startsWith('**') && part.endsWith('**')) || (part.startsWith('__') && part.endsWith('__'))) return <strong key={index}>{part.slice(2, -2)}</strong>
+    if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('_') && part.endsWith('_'))) return <em key={index}>{part.slice(1, -1)}</em>
+    return <span key={index}>{part}</span>
+  })
+}
+
 function ChatPanel({ history, input, setInput, onSubmit, isSending, hintLoading }: { history: ChatMessage[]; input: string; setInput: (value: string) => void; onSubmit: (event: FormEvent) => void; isSending: boolean; hintLoading: boolean }) {
-  return <section className="chat-panel"><div className="section-heading"><div className="section-title"><MessageSquareText size={15} /> SOCRATIC MENTOR</div><span className="chat-count">{hintLoading ? 'Generating hint' : history.length ? `${history.length} turns` : 'Context-aware'}</span></div><div className="chat-thread">{history.length === 0 && !hintLoading ? <div className="chat-empty"><Sparkles size={16} /><span>Ask about the diagnosis, invariant, or complexity.</span></div> : history.slice(-4).map((message, index) => <div className={`chat-message ${message.role}`} key={`${message.timestamp}-${index}`}><span className="message-role">{message.role === 'user' ? 'YOU' : 'TRACE'}</span><p>{message.content}</p></div>)}{isSending && <div className="chat-message assistant"><span className="message-role">TRACE</span><p className="typing"><i /><i /><i /></p></div>}</div><form className="chat-form" onSubmit={onSubmit}><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask a follow-up question…" disabled={isSending} /><button type="submit" aria-label="Send follow-up" disabled={!input.trim() || isSending}><Send size={15} /></button></form></section>
+  return <section className="chat-panel"><div className="section-heading"><div className="section-title"><MessageSquareText size={15} /> SOCRATIC MENTOR</div><span className="chat-count">{hintLoading ? 'Generating hint' : history.length ? `${history.length} turns` : 'Context-aware'}</span></div><div className="chat-thread">{history.length === 0 && !hintLoading ? <div className="chat-empty"><Sparkles size={16} /><span>Ask about the diagnosis, invariant, or complexity.</span></div> : history.slice(-4).map((message, index) => <div className={`chat-message ${message.role}`} key={`${message.timestamp}-${index}`}><span className="message-role">{message.role === 'user' ? 'YOU' : 'TRACE'}</span><MarkdownMessage content={message.content} /></div>)}{isSending && <div className="chat-message assistant"><span className="message-role">TRACE</span><p className="typing"><i /><i /><i /></p></div>}</div><form className="chat-form" onSubmit={onSubmit}><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask a follow-up question…" disabled={isSending} /><button type="submit" aria-label="Send follow-up" disabled={!input.trim() || isSending}><Send size={15} /></button></form></section>
 }
 
 function TelemetryAccordion({ telemetry }: { telemetry: TelemetryLog }) {
