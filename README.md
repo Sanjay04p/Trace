@@ -32,11 +32,11 @@ We engineered a multi-model agentic swarm that dynamically routes tasks based on
 
 ## 🛡️ 3-Layer Hardened Code Execution Sandbox
 
-Executing arbitrary, untrusted user code on a backend server poses critical security risks. Trace AI mitigates these threats through a custom, highly secure local Python execution environment featuring a hardened 3-layer sandbox[cite: 2]. This architecture not only protects the host but also seamlessly integrates with our token-optimization pipeline by short-circuiting LLM calls when threats are detected.
+Executing arbitrary, untrusted user code on a backend server poses critical security risks. Trace AI mitigates these threats through a custom, highly secure local Python execution environment featuring a hardened 3-layer sandbox. This architecture not only protects the host but also seamlessly integrates with our token-optimization pipeline by short-circuiting LLM calls when threats are detected.
 
 ### Layer 1: Static AST Parsing (Pre-Execution)
 Before a single line of user code is executed, the backend parses the submission into an Abstract Syntax Tree (AST). 
-* **The Mechanism:** A custom node visitor traverses the AST to detect and block malicious imports (e.g., `os`, `sys`, `subprocess`) and dangerous built-in functions (e.g., `eval()`, `exec()`)[cite: 2].
+* **The Mechanism:** A custom node visitor traverses the AST to detect and block malicious imports (e.g., `os`, `sys`, `subprocess`) and dangerous built-in functions (e.g., `eval()`, `exec()`).
 * **Swarm Optimization:** If a security violation is detected at this layer, the orchestrator immediately blocks the request and returns a "Security Violation" trace to the frontend. By intercepting the threat *before* execution, we bypass the LLM entirely, wasting zero tokens on bad actors.
 
 ### Layer 2: Sanitized Subprocesses (Memory Isolation)
