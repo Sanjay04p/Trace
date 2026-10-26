@@ -29,13 +29,30 @@ We engineered a multi-model agentic swarm that dynamically routes tasks based on
 
 ---
 
+
+## 🛡️ 3-Layer Hardened Code Execution Sandbox
+
+Executing arbitrary, untrusted user code on a backend server poses critical security risks. Trace AI mitigates these threats through a custom, highly secure local Python execution environment featuring a hardened 3-layer sandbox[cite: 2]. This architecture not only protects the host but also seamlessly integrates with our token-optimization pipeline by short-circuiting LLM calls when threats are detected.
+
+### Layer 1: Static AST Parsing (Pre-Execution)
+Before a single line of user code is executed, the backend parses the submission into an Abstract Syntax Tree (AST). 
+* **The Mechanism:** A custom node visitor traverses the AST to detect and block malicious imports (e.g., `os`, `sys`, `subprocess`) and dangerous built-in functions (e.g., `eval()`, `exec()`)[cite: 2].
+* **Swarm Optimization:** If a security violation is detected at this layer, the orchestrator immediately blocks the request and returns a "Security Violation" trace to the frontend. By intercepting the threat *before* execution, we bypass the LLM entirely, wasting zero tokens on bad actors.
+
+### Layer 2: Sanitized Subprocesses (Memory Isolation)
+If the code passes the AST gate, it is packaged with the Nemotron-generated edge cases and executed in an isolated child process.
+* **The Mechanism:** We explicitly define a pristine, restricted environment dictionary for the subprocess. This aggressively strips all host secrets from memory, ensuring that critical backend variables like the `NEBIUS_API_KEY` cannot be accessed or exfiltrated by malicious code.
+
+### Layer 3: OS-Level Constraints (Resource Protection)
+To defend against unintentional infinite loops or deliberate Denial of Service (DoS) attacks, the sandbox restricts the physical compute resources available to the execution process.
+* **The Mechanism:** Leveraging OS-level limits, the sandbox strictly caps both CPU time and RAM usage. If a user's `while` loop runs out of control or an array consumes excessive memory, the operating system forcefully kills the subprocess, preventing server resource exhaustion.
+
+---
+
 ## ✨ Key Features
 
 * **Agentic Multi-Model Routing:** Intelligently splits workloads between Nemotron Nano and Super.
-* **Hardened 3-Layer Sandbox:** Secure local Python execution featuring:
-  1. *Static AST Parsing:* Blocks malicious imports and built-ins before execution.
-  2. *Sanitized Subprocesses:* Strips host secrets (like `NEBIUS_API_KEY`) from memory.
-  3. *OS-Level Limits:* Caps CPU and RAM usage to prevent resource exhaustion.
+* **Hardened 3-Layer Sandbox security:** Secure local Python execution
 * **Smart Import:** Frictionless LeetCode problem fetching via Nano-30B.
 * **Stateful Client Caching:** React frontend caches hint levels to prevent duplicate LLM API calls.
 
