@@ -13,19 +13,23 @@ This project was built specifically to leverage the power of **NVIDIA open-sourc
 ### Model Orchestration Strategy
 We engineered a multi-model agentic swarm that dynamically routes tasks based on computational complexity:
 
-1. **`NVIDIA-Nemotron-3-Nano-30B-A3B`**
-   * **Role:** High-speed, low-latency generation.
-   * **Implementation:** Used for autonomous adversarial edge-case generation before code execution, "Smart Import" problem parsing, and foundational Level-1 hints. Its smaller footprint prevents wasting expensive compute on simple logic operations.
-2. **`nemotron-3-super-120b-a12b`**
-   * **Role:** Deep reasoning and Socratic deduction.
-   * **Implementation:** Reserved for computationally heavy tasks. It analyzes failed execution traces from the sandbox, diagnoses deep logical misconceptions (e.g., "Boundary - Method signature misuse"), and powers the multi-turn Socratic Mentor chat.
+1. **`Nemotron-3_5-Lightning`**
+* **Role:** High-speed, low-latency generation.
+* **Implementation:** Used for autonomous adversarial edge-case generation before code execution, "Smart Import" problem parsing, and foundational Level-1 hints. Its smaller footprint prevents wasting expensive compute on simple logic operations.
+
+
+2. **`Nemotron-3.5-Super-VL`**
+* **Role:** Deep reasoning and Socratic deduction.
+* **Implementation:** Reserved for computationally heavy tasks. It analyzes failed execution traces from the sandbox, diagnoses deep logical misconceptions (e.g., "Boundary - Method signature misuse"), and powers the multi-turn Socratic Mentor chat.
+
+
 3. **`nvidia-nemotron-3-ultra-550b-a55b`**
-   * **Role:** Advanced Algorithmic Reasoning & Deep Socratic Escalation
-   * **Implementation:** Routed dynamically by the Swarm Orchestrator for the most complex algorithmic failures, deep multi-turn chat interactions, and highly unconventional learner logic. Its massive 550B parameter scale provides unparalleled reasoning capabilities, ensuring accurate, hallucination-free guidance on the hardest concepts without giving away the direct answer.
+* **Role:** Advanced Algorithmic Reasoning & Deep Socratic Escalation
+* **Implementation:** Routed dynamically by the Swarm Orchestrator for the most complex algorithmic failures, deep multi-turn chat interactions, and highly unconventional learner logic. Its massive 550B parameter scale provides unparalleled reasoning capabilities, ensuring accurate, hallucination-free guidance on the hardest concepts without giving away the direct answer.
 
 ### How Nebius Accelerated Our Workflow
 * **Nebius Token Factory:** Accelerated our backend development by providing highly reliable, OpenAI-compatible API endpoints. The immense throughput allowed us to run parallel swarm calls (e.g., generating edge cases while simultaneously analyzing public test failures) without hitting rate limits or timeouts.
-* **Token Optimization & Telemetry:** We utilized Nebius usage metrics to implement aggressive "Short-Circuiting." If user code passes all tests perfectly, or violates our AST security gate, we completely bypass the Super-120B model, achieving an average **~82% API token cost savings** per evaluation cycle.
+* **Token Optimization & Telemetry:** We utilized Nebius usage metrics to implement aggressive "Short-Circuiting." If user code passes all tests perfectly, or violates our AST security gate, we completely bypass the API calls, achieving an average **~82% API token cost savings** per evaluation cycle and peaking upto 91.7%.
 
 ---
 
